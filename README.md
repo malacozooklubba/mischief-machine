@@ -2,7 +2,7 @@
 
 A Flask-based web application for managing WiFi hotspot connections, VPN settings, and network controls.
 
-![Mischief Machine Interface](preview/portal_preview.png)
+![Mischief Machine Interface](preview/portal_preview_dark.png)
 
 ## Quick Start
 
