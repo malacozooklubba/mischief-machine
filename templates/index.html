@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simon's Mischief Machine</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="../static/styles.css" />
+    <style>
+      /* Prevent flash of unstyled content and disable all animations on load */
+      body { visibility: hidden; }
+      body.loaded { visibility: visible; }
+      body.no-animations * {
+        transition: none !important;
+        animation: none !important;
+        transform: none !important;
+      }
+      body.no-animations .switch-thumb {
+        transform: translate(0, -50%) !important;
+      }
+    </style>
+  </head>
+  <body class="no-animations">
+    <div class="container">
+      <header>
+        <div class="brand">
+          <span class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- WiFi signal waves -->
+              <path d="M4 12c3.5-3.5 9.2-3.5 12.7 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+              <path d="M6.5 14.5c2.5-2.5 6.5-2.5 9 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+              <path d="M9 17c1.5-1.5 3.9-1.5 5.4 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+              <circle cx="11.7" cy="19.3" r="1.2" fill="currentColor"/>
+              
+              <!-- Terminal/code symbol -->
+              <rect x="18" y="8" width="12" height="16" rx="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <line x1="20" y1="12" x2="26" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="20" y1="15" x2="24" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="20" y1="18" x2="28" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="20" y1="21" x2="25" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              
+              <!-- Status indicator -->
+              <circle cx="27" cy="10" r="1.5" fill="currentColor"/>
+            </svg>
+          </span>
+          <h1 class="brand-title">Simon's Mischief Machine</h1>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <span id="theme-icon">🌙</span>
+          <span id="theme-text">Dark</span>
+        </button>
+      </header>
+
+      <div class="grid">
+        <section class="panel" aria-labelledby="wifi-setup-heading">
+          <h2 id="wifi-setup-heading">Wi‑Fi Setup</h2>
+          <form action="/submit" method="post" novalidate onsubmit="return startWifiConnectLoading(this)">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, msg in messages %}
+              <div class="alert {{ 'alert-success' if category == 'success' else 'alert-error' }} alert-pop">
+                <span class="alert-title">{{ 'Connected' if category == 'success' else 'Connection failed' }}</span>
+                <div class="alert-message">{{ msg }}</div>
+              </div>
+              {% endfor %}
+            {% endif %}
+            {% endwith %}
+            <div id="alertArea"></div>
+            <div class="field">
+              <label for="ssid">Choose a Wi‑Fi network</label>
+              <select name="ssid" id="ssid" required>
+                {% for ssid in ssids %}
+                <option value="{{ ssid }}" {{ 'selected' if current_ssid == ssid else '' }}>{{ ssid }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="password">Password</label>
+              <input type="password" name="password" id="password" autocomplete="current-password" />
+            </div>
+
+            <div class="actions">
+              <button type="submit" class="btn" id="connectBtn"><span class="spinner" aria-hidden="true"></span><span class="btn-label">Connect</span></button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel" aria-labelledby="section-two-heading">
+          <h2 id="section-two-heading">Development</h2>
+          <div class="tools">
+            <form action="/toggle_vpn" method="post" class="tool-row" id="vpnForm" onChange="return submitToggle(this)">
+              <div class="tool-meta">
+                <div class="tool-title">VPN Connection</div>
+                <div class="tool-desc muted">Toggle Framna VPN tunnel on or off.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" name="enabled" value="1" id="vpnToggle" {{ 'checked' if vpn_enabled else '' }} />
+                <span class="mini-spinner" aria-hidden="true"></span>
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+              </label>
+            </form>
+
+            <form action="/toggle_throttle" method="post" class="tool-row" id="throttleForm" onChange="return submitToggle(this)">
+              <div class="tool-meta">
+                <div class="tool-title">Throttle Network</div>
+                <div class="tool-desc muted">Simulate reduced bandwidth for testing.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" name="enabled" value="1" id="throttleToggle" {{ 'checked' if throttle_enabled else '' }} />
+                <span class="mini-spinner" aria-hidden="true"></span>
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+              </label>
+            </form>
+
+            <form action="/toggle_block" method="post" class="tool-row" id="blockForm" onChange="return submitToggle(this)">
+              <div class="tool-meta">
+                <div class="tool-title">Block Requests</div>
+                <div class="tool-desc muted">Block all client network requests for offline testing.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" name="enabled" value="1" id="blockToggle" {{ 'checked' if block_enabled else '' }} />
+                <span class="mini-spinner" aria-hidden="true"></span>
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+              </label>
+            </form>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="hotspot-connections-heading">
+          <h2 id="hotspot-connections-heading">Connected Devices</h2>
+          <div class="tools" id="hotspotClients">
+            {% if hotspot_clients and hotspot_clients|length > 0 %}
+              {% for c in hotspot_clients %}
+              <div class="tool-row">
+                <div class="tool-meta">
+                  <div class="tool-title">{{ c.name }}</div>
+                  <div class="tool-desc muted">{{ c.subtitle }}</div>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <p class="muted">No clients currently connected.</p>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="wlan-status-heading">
+          <h2 id="wlan-status-heading">System</h2>
+          <div class="tools">
+            <div class="tool-row">
+              <div class="tool-meta">
+                <div class="tool-title">WLAN0 Status</div>
+                <div class="tool-desc muted">
+                  <div>Status: <span id="wlan0-status">Checking...</span> | IP: <span id="wlan0-ip">Detecting...</span> | SSID: <span id="wlan0-ssid">Checking...</span></div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="tool-row">
+              <div class="tool-meta">
+                <div class="tool-title">WLAN1 Status</div>
+                <div class="tool-desc muted">
+                  <div>Status: <span id="wlan1-status">Checking...</span> | IP: <span id="wlan1-ip">Detecting...</span> | SSID: <span id="wlan1-ssid">Checking...</span></div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="tool-row">
+              <div class="tool-meta">
+                <div class="tool-title">Reset System</div>
+                <div class="tool-desc muted">Reset all settings and connections</div>
+              </div>
+              <button class="btn" onclick="resetSystem()" style="padding: 8px 16px; font-size: 12px;">Reset</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <footer>
+        © Palm Enterprises 2025
+      </footer>
+    </div>
+    <script>
+      function startWifiConnectLoading(form) {
+        try {
+          var btn = form.querySelector('#connectBtn');
+          if (btn) {
+            btn.classList.add('loading');
+            btn.setAttribute('disabled', 'disabled');
+          }
+          // Do NOT disable form inputs; disabled fields are not submitted
+        } catch (e) { /* no-op */ }
+        return true; // proceed with submit
+      }
+      function submitToggle(form) {
+        var url = form.getAttribute('action');
+        // Build payload BEFORE disabling inputs so checkbox value is captured
+        var checkbox = form.querySelector('input[type="checkbox"]');
+        var previousChecked = checkbox ? checkbox.checked : undefined;
+        var formData = new FormData();
+        if (checkbox && checkbox.checked) {
+          formData.append('enabled', '1');
+        }
+        // Prevent checkbox from changing visually until server responds
+        if (checkbox) {
+          checkbox.addEventListener('change', function(e) { e.preventDefault(); return false; }, { once: true });
+        }
+        try {
+          form.classList.add('loading');
+          var inputs = form.querySelectorAll('input, button');
+          inputs.forEach(function(el) { el.setAttribute('disabled', 'disabled'); });
+        } catch (e) { /* no-op */ }
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' },
+          body: formData,
+          credentials: 'same-origin'
+        }).then(function(res) {
+          if (!res.ok) return res.json().then(function(j){ throw new Error(j.error || 'Request failed'); });
+          return res.json();
+        }).then(function(payload) {
+          refreshStatus();
+        }).catch(function(err) {
+          renderAlert('error', err.message || String(err));
+        }).finally(function(){
+          try {
+            form.classList.remove('loading');
+            var inputs = form.querySelectorAll('input, button');
+            inputs.forEach(function(el) { el.removeAttribute('disabled'); });
+          } catch (e) {}
+        });
+        return false;
+      }
+
+      function renderAlert(category, msg) {
+        var area = document.getElementById('alertArea');
+        if (!area) return;
+        var box = document.createElement('div');
+        box.className = 'alert ' + (category === 'success' ? 'alert-success' : 'alert-error') + ' alert-pop';
+        var title = document.createElement('span');
+        title.className = 'alert-title';
+        title.textContent = category === 'success' ? 'Success' : 'Error';
+        var body = document.createElement('div');
+        body.className = 'alert-message';
+        body.textContent = msg;
+        box.appendChild(title);
+        box.appendChild(body);
+        area.appendChild(box);
+        setTimeout(function(){ if (box.parentNode) box.parentNode.removeChild(box); }, 5000);
+      }
+
+      function refreshStatus() {
+        fetch('/status', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+          .then(function(r){ return r.json(); })
+          .then(function(data){
+            try {
+              // Update toggles
+              var vpn = document.getElementById('vpnToggle');
+              if (vpn && typeof data.vpn_enabled !== 'undefined') vpn.checked = !!data.vpn_enabled;
+              var thr = document.getElementById('throttleToggle');
+              if (thr && typeof data.throttle_enabled !== 'undefined') thr.checked = !!data.throttle_enabled;
+              var blk = document.getElementById('blockToggle');
+              if (blk && typeof data.block_enabled !== 'undefined') blk.checked = !!data.block_enabled;
+              // Update hotspot clients
+              var list = document.getElementById('hotspotClients');
+              if (list && Array.isArray(data.hotspot_clients)) {
+                list.innerHTML = '';
+                if (data.hotspot_clients.length === 0) {
+                  var p = document.createElement('p');
+                  p.className = 'muted';
+                  p.textContent = 'No clients currently connected.';
+                  list.appendChild(p);
+                } else {
+                  data.hotspot_clients.forEach(function(c){
+                    var row = document.createElement('div');
+                    row.className = 'tool-row';
+                    var meta = document.createElement('div');
+                    meta.className = 'tool-meta';
+                    var title = document.createElement('div');
+                    title.className = 'tool-title';
+                    title.textContent = c.name || c.mac;
+                    var desc = document.createElement('div');
+                    desc.className = 'tool-desc muted';
+                    desc.textContent = 'IP: ' + (c.ip || '—') + ' · MAC: ' + (c.mac || '—') + ' · Signal: ' + (c.signal_dbm || '—') + ' dBm · RX: ' + (c.rx_bitrate || '—') + ' · TX: ' + (c.tx_bitrate || '—') + ' · Connected: ' + (c.connected_time || '—');
+                    meta.appendChild(title);
+                    meta.appendChild(desc);
+                    row.appendChild(meta);
+                    list.appendChild(row);
+                  });
+                }
+              }
+            } catch (e) { /* ignore render errors */ }
+          })
+          .catch(function(err){ /* swallow polling errors */ });
+      }
+
+      // Initial fetch and polling
+      refreshStatus();
+      setInterval(refreshStatus, 2500);
+
+
+      // Theme switching functionality
+      function initTheme() {
+        // Check for saved theme preference or default to system preference
+        var savedTheme = localStorage.getItem('theme');
+        var systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+        
+        document.documentElement.setAttribute('data-theme', theme);
+        updateThemeToggle(theme);
+        
+        // Show page after theme is applied
+        document.body.classList.add('loaded');
+        
+        // Remove no-animations class and enable transitions after everything is ready
+        setTimeout(function() {
+          document.body.classList.remove('no-animations');
+          document.body.classList.add('theme-transitions');
+        }, 100);
+      }
+
+      function toggleTheme() {
+        var currentTheme = document.documentElement.getAttribute('data-theme');
+        var newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        updateThemeToggle(newTheme);
+      }
+
+      function updateThemeToggle(theme) {
+        var icon = document.getElementById('theme-icon');
+        var text = document.getElementById('theme-text');
+        
+        if (theme === 'light') {
+          icon.textContent = '☀️';
+          text.textContent = 'Light';
+        } else {
+          icon.textContent = '🌙';
+          text.textContent = 'Dark';
+        }
+      }
+
+      // Initialize theme on page load
+      initTheme();
+
+      // Listen for system theme changes
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+        if (!localStorage.getItem('theme')) {
+          var theme = e.matches ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+          updateThemeToggle(theme);
+        }
+      });
+
+      // WLAN status features
+      function initWLANStatus() {
+        function updateWLAN0Info() {
+          var statusElement = document.getElementById('wlan0-status');
+          var ipElement = document.getElementById('wlan0-ip');
+          var ssidElement = document.getElementById('wlan0-ssid');
+          
+          if (statusElement && ipElement && ssidElement) {
+            fetch('/api/wlan0-status')
+              .then(response => response.json())
+              .then(data => {
+                statusElement.textContent = data.status || 'Unknown';
+                ipElement.textContent = data.ip || 'Not detected';
+                ssidElement.textContent = data.ssid || 'Not connected';
+              })
+              .catch(error => {
+                statusElement.textContent = 'Error';
+                ipElement.textContent = 'Unable to detect';
+                ssidElement.textContent = 'Unable to detect';
+              });
+          }
+        }
+        
+        function updateWLAN1Info() {
+          var statusElement = document.getElementById('wlan1-status');
+          var ipElement = document.getElementById('wlan1-ip');
+          var ssidElement = document.getElementById('wlan1-ssid');
+          
+          if (statusElement && ipElement && ssidElement) {
+            fetch('/api/wlan1-status')
+              .then(response => response.json())
+              .then(data => {
+                statusElement.textContent = data.status || 'Unknown';
+                ipElement.textContent = data.ip || 'Not detected';
+                ssidElement.textContent = data.ssid || 'Not connected';
+              })
+              .catch(error => {
+                statusElement.textContent = 'Error';
+                ipElement.textContent = 'Unable to detect';
+                ssidElement.textContent = 'Unable to detect';
+              });
+          }
+        }
+        
+        // Update WLAN0 and WLAN1 info every 10 seconds
+        setInterval(updateWLAN0Info, 10000);
+        setInterval(updateWLAN1Info, 10000);
+        
+        // Initial updates
+        updateWLAN0Info();
+        updateWLAN1Info();
+      }
+      
+      // Initialize WLAN status after page loads
+      setTimeout(initWLANStatus, 1000);
+
+      function resetSystem() {
+        if (confirm('Are you sure you want to reset all settings and connections? This will disconnect all devices and reset network configurations.')) {
+          fetch('/api/reset-system', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              alert('System reset successful! The page will reload.');
+              window.location.reload();
+            } else {
+              alert('Reset failed: ' + (data.error || 'Unknown error'));
+            }
+          })
+          .catch(error => {
+            alert('Reset failed: ' + error.message);
+          });
+        }
+      }
+
+    </script>
+  </body>
+</html>
